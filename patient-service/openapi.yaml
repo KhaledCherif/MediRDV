@@ -1,0 +1,260 @@
+openapi: 3.0.3
+info:
+  title: MediRDV Patient Service API
+  version: 1.0.0
+  description: >-
+    Contrat REST du microservice de gestion des dossiers patients. Le service
+    persiste les dossiers dans la base patient_db, table patients.
+servers:
+  - url: http://localhost:8081
+    description: Accès local direct au microservice
+tags:
+  - name: Patients
+    description: Création, consultation, modification et suppression des dossiers patients
+paths:
+  /api/v1/patients:
+    
+    get:
+      tags: [Patients]
+      summary: Lister les patients
+      operationId: findAllPatients
+      responses:
+        '200':
+          description: Liste des patients renvoyée
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Patient'
+    
+    post:
+      tags: [Patients]
+      summary: Créer un dossier patient
+      operationId: createPatient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInput'
+            example:
+              nom: Amina Ben Ali
+              contact: '+216 20 000 000'
+              numeroAssure: ASSURE-DEMO-001
+      responses:
+        '201':
+          description: Patient créé
+          headers:
+            Location:
+              description: URI du patient nouvellement créé
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '400':
+          description: Données invalides ou champ obligatoire vide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrors'
+        '409':
+          description: Le numéro d'assuré est déjà utilisé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  
+  
+  /api/v1/patients/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identifiant généré par la base de données
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    
+    get:
+      tags: [Patients]
+      summary: Rechercher un patient par identifiant
+      operationId: findPatientById
+      responses:
+        '200':
+          description: Patient trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Patient introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+   
+    put:
+      tags: [Patients]
+      summary: Modifier un dossier patient
+      operationId: updatePatient
+      requestBody:
+        required: true
+        description: Les trois champs doivent être renseignés. L'identifiant est fourni dans l'URL.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientInput'
+            example:
+              nom: Amina Ben Ali
+              contact: '+216 20 000 000'
+              numeroAssure: ASSURE-DEMO-001
+      responses:
+        '200':
+          description: Patient modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '400':
+          description: Données invalides ou champ obligatoire vide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrors'
+        '404':
+          description: Patient introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Le numéro d'assuré est déjà utilisé par un autre patient
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    
+    delete:
+      tags: [Patients]
+      summary: Supprimer un dossier patient
+      operationId: deletePatient
+      responses:
+        '204':
+          description: Patient supprimé
+        '404':
+          description: Patient introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  
+  
+  /api/v1/patients/numero-assure/{numeroAssure}:
+    
+    get:
+      tags: [Patients]
+      summary: Rechercher un patient par numéro d'assuré
+      operationId: findPatientByNumeroAssure
+      parameters:
+        - name: numeroAssure
+          in: path
+          required: true
+          description: Numéro d'assuré unique enregistré pour le patient
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Patient trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Aucun patient ne porte ce numéro d'assuré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+components:
+  schemas:
+    Patient:
+      type: object
+      required: [id, nom, contact, numeroAssure]
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Identifiant généré automatiquement par la base de données
+          example: 22
+        
+        nom:
+          type: string
+          minLength: 1
+          description: Nom du patient
+          example: Amina Ben Ali
+       
+        contact:
+          type: string
+          minLength: 1
+          description: Coordonnée de contact du patient
+          example: '+216 20 000 000'
+        
+        numeroAssure:
+          type: string
+          minLength: 1
+          description: Numéro d'assuré unique
+          example: ASSURE-DEMO-001
+    
+    
+    PatientInput:
+      type: object
+      required: [nom, contact, numeroAssure]
+      additionalProperties: false
+      properties:
+        nom:
+          type: string
+          minLength: 1
+          description: Nom du patient
+          example: Amina Ben Ali
+        
+        contact:
+          type: string
+          minLength: 1
+          description: Coordonnée de contact du patient
+          example: '+216 20 000 000'
+       
+        numeroAssure:
+          type: string
+          minLength: 1
+          description: Numéro d'assuré unique
+          example: ASSURE-DEMO-001
+    
+    ApiError:
+      type: object
+      required: [status, error, message]
+      properties:
+        status:
+          type: string
+          example: '404'
+        error:
+          type: string
+          example: Not Found
+        message:
+          type: string
+          example: Patient with id 22 was not found
+   
+    ValidationErrors:
+      type: object
+      additionalProperties:
+        type: string
+      description: Objet associant chaque champ invalide à son message de validation
+      example:
+        nom: must not be blank
