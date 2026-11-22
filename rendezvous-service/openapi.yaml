@@ -1,0 +1,265 @@
+openapi: 3.0.3
+info:
+  title: MediRDV Rendez-vous Service API
+  version: 1.0.0
+  description: |
+    Contrat REST du microservice de gestion des rendez-vous médicaux.
+    Le service gère le cycle de vie des rendez-vous (machine à états) et s'intègre
+    avec patient-service (REST) et praticien-service (gRPC).
+servers:
+  - url: http://localhost:8083
+    description: Accès local direct au microservice
+  - url: http://rendezvous-service:8083
+    description: Accès interne Docker
+tags:
+  - name: Rendez-vous
+    description: Gestion des rendez-vous (création, consultation, changement de statut)
+paths:
+  /api/v1/rendezvous:
+    post:
+      tags: [Rendez-vous]
+      summary: Créer un rendez-vous (idempotent sur requestId)
+      operationId: creerRendezvous
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRendezvousRequest'
+            example:
+              patientId: 1
+              creneauId: 10
+              requestId: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      responses:
+        '201':
+          description: Rendez-vous créé
+          headers:
+            Location:
+              description: URI du rendez-vous nouvellement créé
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RendezvousResponse'
+        '200':
+          description: requestId déjà traité - rendez-vous existant renvoyé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RendezvousResponse'
+        '400':
+          description: Données invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrors'
+        '404':
+          description: Patient introuvable (patient-service)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: patient-service indisponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    get:
+      tags: [Rendez-vous]
+      summary: Lister les rendez-vous (filtre optionnel par patient)
+      operationId: listerRendezvous
+      parameters:
+        - name: patientId
+          in: query
+          description: Filtrer par identifiant patient (optionnel)
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+      responses:
+        '200':
+          description: Liste des rendez-vous
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RendezvousResponse'
+  /api/v1/rendezvous/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identifiant du rendez-vous
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    get:
+      tags: [Rendez-vous]
+      summary: Consulter un rendez-vous
+      operationId: trouverRendezvous
+      responses:
+        '200':
+          description: Rendez-vous trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RendezvousResponse'
+        '404':
+          description: Rendez-vous introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    patch:
+      tags: [Rendez-vous]
+      summary: Changer le statut d'un rendez-vous (machine à états)
+      operationId: changerStatutRendezvous
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStatutRequest'
+            example:
+              statut: "ANNULE"
+      responses:
+        '200':
+          description: Statut modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RendezvousResponse'
+        '400':
+          description: Statut invalide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrors'
+        '404':
+          description: Rendez-vous introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Transition interdite par la machine à états
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+components:
+  schemas:
+    CreateRendezvousRequest:
+      type: object
+      required: [patientId, creneauId, requestId]
+      additionalProperties: false
+      properties:
+        patientId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Identifiant du patient (référence patient-service)
+          example: 1
+        creneauId:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Identifiant du créneau (référence praticien-service)
+          example: 10
+        requestId:
+          type: string
+          format: uuid
+          description: Clé d'idempotence fournie par le client (UUID v4)
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+    UpdateStatutRequest:
+      type: object
+      required: [statut]
+      additionalProperties: false
+      properties:
+        statut:
+          type: string
+          enum: [PLANIFIE, DROITS_A_VERIFIER, ANNULE, CLOTURE]
+          description: |
+            Nouveau statut (transition validée par la machine à états).
+            Transitions autorisées:
+            - DROITS_A_VERIFIER -> PLANIFIE (droits OK)
+            - DROITS_A_VERIFIER -> ANNULE (droits KO)
+            - PLANIFIE -> ANNULE (annulation patient/praticien)
+            - PLANIFIE -> CLOTURE (après consultation)
+            - ANNULE -> (aucune)
+            - CLOTURE -> (aucune)
+          example: "ANNULE"
+    RendezvousResponse:
+      type: object
+      required: [id, patientId, creneauId, statut, requestId]
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Identifiant généré automatiquement
+          example: 42
+        patientId:
+          type: integer
+          format: int64
+          description: Identifiant du patient
+          example: 1
+        creneauId:
+          type: integer
+          format: int64
+          description: Identifiant du créneau
+          example: 10
+        statut:
+          type: string
+          enum: [PLANIFIE, DROITS_A_VERIFIER, ANNULE, CLOTURE]
+          description: État actuel du rendez-vous
+          example: "DROITS_A_VERIFIER"
+        requestId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Clé d'idempotence utilisée à la création
+          example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+    ApiError:
+      type: object
+      required: [status, error, message]
+      properties:
+        status:
+          type: string
+          example: "404"
+        error:
+          type: string
+          example: "Not Found"
+        message:
+          type: string
+          example: "Rendez-vous with id 42 was not found"
+    ValidationErrors:
+      type: object
+      additionalProperties:
+        type: string
+      description: Objet associant chaque champ invalide à son message de validation
+      example:
+        patientId: "must be a positive integer"
+        requestId: "must not be null"
+    PatientDto:
+      type: object
+      description: Patient tel que retourné par patient-service (GET /api/v1/patients/{id})
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nom:
+          type: string
+          example: "Amina Ben Ali"
+        contact:
+          type: string
+          example: "+216 20 000 001"
+        numeroAssure:
+          type: string
+          example: "ASSURE-001"

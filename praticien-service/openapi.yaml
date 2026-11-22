@@ -1,0 +1,508 @@
+openapi: 3.0.3
+info:
+  title: MediRDV Praticien Service API
+  version: 1.0.0
+  description: |
+    Contrat REST du microservice de gestion des praticiens et de leurs créneaux.
+    Le service persiste les praticiens et créneaux dans la base praticien_db.
+servers:
+  - url: http://localhost:8082
+    description: Accès local direct au microservice
+  - url: http://praticien-service:8082
+    description: Accès interne Docker
+tags:
+  - name: Praticiens
+    description: Gestion des praticiens (CRUD)
+  - name: Creneaux
+    description: Gestion des créneaux horaires des praticiens
+paths:
+  /api/v1/praticiens:
+    get:
+      tags: [Praticiens]
+      summary: Lister les praticiens
+      operationId: listerPraticiens
+      parameters:
+        - name: specialite
+          in: query
+          description: Filtrer par spécialité (optionnel)
+          schema:
+            type: string
+            maxLength: 80
+      responses:
+        '200':
+          description: Liste des praticiens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PraticienResponse'
+    post:
+      tags: [Praticiens]
+      summary: Créer un praticien
+      operationId: creerPraticien
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PraticienRequest'
+            example:
+              nom: "Dr. Ahmed Ben Salah"
+              specialite: "CARDIOLOGIE"
+      responses:
+        '201':
+          description: Praticien créé
+          headers:
+            Location:
+              description: URI du praticien nouvellement créé
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PraticienResponse'
+        '400':
+          description: Données invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrors'
+  /api/v1/praticiens/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identifiant du praticien
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    get:
+      tags: [Praticiens]
+      summary: Rechercher un praticien par identifiant
+      operationId: trouverPraticien
+      responses:
+        '200':
+          description: Praticien trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PraticienResponse'
+        '404':
+          description: Praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    put:
+      tags: [Praticiens]
+      summary: Modifier un praticien
+      operationId: modifierPraticien
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PraticienRequest'
+            example:
+              nom: "Dr. Ahmed Ben Salah"
+              specialite: "CARDIOLOGIE"
+      responses:
+        '200':
+          description: Praticien modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PraticienResponse'
+        '400':
+          description: Données invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrors'
+        '404':
+          description: Praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      tags: [Praticiens]
+      summary: Supprimer un praticien
+      operationId: supprimerPraticien
+      responses:
+        '204':
+          description: Praticien supprimé
+        '404':
+          description: Praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/v1/praticiens/{id}/creneaux:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identifiant du praticien
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    get:
+      tags: [Creneaux]
+      summary: Lister les créneaux d'un praticien
+      operationId: listerCreneauxPraticien
+      parameters:
+        - name: statut
+          in: query
+          description: Filtrer par statut (optionnel)
+          schema:
+            type: string
+            enum: [LIBRE, EN_ATTENTE, RESERVE]
+        - name: du
+          in: query
+          description: Date/heure de début incluse (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+        - name: au
+          in: query
+          description: Date/heure de fin exclue (ISO-8601)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Liste des créneaux
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CreneauResponse'
+        '404':
+          description: Praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags: [Creneaux]
+      summary: Créer un créneau pour un praticien
+      operationId: creerCreneau
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreneauRequest'
+            example:
+              debut: "2025-01-15T08:00:00"
+              fin: "2025-01-15T08:30:00"
+      responses:
+        '201':
+          description: Créneau créé
+          headers:
+            Location:
+              description: URI du créneau nouvellement créé
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreneauResponse'
+        '400':
+          description: Données invalides (ex: fin <= debut)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrors'
+        '404':
+          description: Praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/v1/praticiens/{id}/creneaux/{creneauId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identifiant du praticien
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: creneauId
+        in: path
+        required: true
+        description: Identifiant du créneau
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    get:
+      tags: [Creneaux]
+      summary: Rechercher un créneau par identifiant
+      operationId: trouverCreneau
+      responses:
+        '200':
+          description: Créneau trouvé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreneauResponse'
+        '404':
+          description: Créneau ou praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    put:
+      tags: [Creneaux]
+      summary: Modifier un créneau (seulement si LIBRE)
+      operationId: modifierCreneau
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreneauRequest'
+            example:
+              debut: "2025-01-15T09:00:00"
+              fin: "2025-01-15T09:30:00"
+      responses:
+        '200':
+          description: Créneau modifié
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreneauResponse'
+        '400':
+          description: Données invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrors'
+        '404':
+          description: Créneau ou praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Créneau non modifiable (statut != LIBRE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      tags: [Creneaux]
+      summary: Supprimer un créneau (seulement si LIBRE)
+      operationId: supprimerCreneau
+      responses:
+        '204':
+          description: Créneau supprimé
+        '404':
+          description: Créneau ou praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Créneau non supprimable (statut != LIBRE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/v1/praticiens/{id}/creneaux/{creneauId}/accepter:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identifiant du praticien
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: creneauId
+        in: path
+        required: true
+        description: Identifiant du créneau
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    put:
+      tags: [Creneaux]
+      summary: Accepter une demande de réservation en attente
+      operationId: accepterCreneau
+      responses:
+        '200':
+          description: Créneau accepté (statut -> RESERVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreneauResponse'
+        '404':
+          description: Créneau ou praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Créneau non acceptabl (statut != EN_ATTENTE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /api/v1/praticiens/{id}/creneaux/{creneauId}/refuser:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Identifiant du praticien
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: creneauId
+        in: path
+        required: true
+        description: Identifiant du créneau
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    put:
+      tags: [Creneaux]
+      summary: Refuser une demande de réservation en attente
+      operationId: refuserCreneau
+      responses:
+        '200':
+          description: Créneau refusé (statut -> LIBRE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreneauResponse'
+        '404':
+          description: Créneau ou praticien introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Créneau non refusable (statut != EN_ATTENTE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+components:
+  schemas:
+    PraticienRequest:
+      type: object
+      required: [nom, specialite]
+      additionalProperties: false
+      properties:
+        nom:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Nom complet du praticien
+          example: "Dr. Ahmed Ben Salah"
+        specialite:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Spécialité médicale
+          example: "CARDIOLOGIE"
+    PraticienResponse:
+      type: object
+      required: [id, nom, specialite]
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Identifiant généré automatiquement
+          example: 1
+        nom:
+          type: string
+          maxLength: 120
+          description: Nom complet du praticien
+          example: "Dr. Ahmed Ben Salah"
+        specialite:
+          type: string
+          maxLength: 80
+          description: Spécialité médicale
+          example: "CARDIOLOGIE"
+    CreneauRequest:
+      type: object
+      required: [debut, fin]
+      additionalProperties: false
+      properties:
+        debut:
+          type: string
+          format: date-time
+          description: Date/heure de début du créneau (ISO-8601)
+          example: "2025-01-15T08:00:00"
+        fin:
+          type: string
+          format: date-time
+          description: Date/heure de fin du créneau (ISO-8601, doit être après debut)
+          example: "2025-01-15T08:30:00"
+    CreneauResponse:
+      type: object
+      required: [id, praticienId, debut, fin, statut]
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Identifiant généré automatiquement
+          example: 10
+        praticienId:
+          type: integer
+          format: int64
+          description: Identifiant du praticien propriétaire
+          example: 1
+        debut:
+          type: string
+          format: date-time
+          description: Date/heure de début
+          example: "2025-01-15T08:00:00"
+        fin:
+          type: string
+          format: date-time
+          description: Date/heure de fin
+          example: "2025-01-15T08:30:00"
+        statut:
+          type: string
+          enum: [LIBRE, EN_ATTENTE, RESERVE]
+          description: État du créneau
+          example: "LIBRE"
+    ApiError:
+      type: object
+      required: [status, error, message]
+      properties:
+        status:
+          type: string
+          example: "404"
+        error:
+          type: string
+          example: "Not Found"
+        message:
+          type: string
+          example: "Praticien with id 1 was not found"
+    ValidationErrors:
+      type: object
+      additionalProperties:
+        type: string
+      description: Objet associant chaque champ invalide à son message de validation
+      example:
+        nom: "must not be blank"
+        specialite: "must not be blank"
