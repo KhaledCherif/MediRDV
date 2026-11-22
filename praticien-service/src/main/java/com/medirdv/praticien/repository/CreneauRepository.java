@@ -28,14 +28,19 @@ public interface CreneauRepository extends JpaRepository<Creneau, Long> {
                                                                  LocalDateTime fin,
                                                                  LocalDateTime debut);
 
+    boolean existsByPraticienIdAndIdNotAndDebutLessThanAndFinGreaterThan(Long praticienId,
+                                                                          Long id,
+                                                                          LocalDateTime fin,
+                                                                          LocalDateTime debut);
+
     /**
-     * Transition atomique LIBRE -> RESERVE. Retourne 1 si ce thread a gagné la course, 0 sinon.
+     * Transition atomique LIBRE -> EN_ATTENTE. Retourne 1 si ce thread a gagné la course, 0 sinon.
      * La colonne version est incrémentée à la main : les UPDATE JPQL contournent @Version.
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update Creneau c
-               set c.statut = com.medirdv.praticien.domain.StatutCreneau.RESERVE,
+               set c.statut = com.medirdv.praticien.domain.StatutCreneau.EN_ATTENTE,
                    c.version = c.version + 1
              where c.id = :id
                and c.statut = com.medirdv.praticien.domain.StatutCreneau.LIBRE
@@ -45,10 +50,31 @@ public interface CreneauRepository extends JpaRepository<Creneau, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update Creneau c
+               set c.statut = com.medirdv.praticien.domain.StatutCreneau.RESERVE,
+                   c.version = c.version + 1
+             where c.id = :id
+               and c.statut = com.medirdv.praticien.domain.StatutCreneau.EN_ATTENTE
+            """)
+    int accepterSiEnAttente(@Param("id") Long id);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update Creneau c
                set c.statut = com.medirdv.praticien.domain.StatutCreneau.LIBRE,
                    c.version = c.version + 1
              where c.id = :id
-               and c.statut = com.medirdv.praticien.domain.StatutCreneau.RESERVE
+               and c.statut = com.medirdv.praticien.domain.StatutCreneau.EN_ATTENTE
             """)
-    int libererSiReserve(@Param("id") Long id);
+    int refuserSiEnAttente(@Param("id") Long id);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update Creneau c
+               set c.statut = com.medirdv.praticien.domain.StatutCreneau.LIBRE,
+                   c.version = c.version + 1
+             where c.id = :id
+               and c.statut in (com.medirdv.praticien.domain.StatutCreneau.EN_ATTENTE,
+                                com.medirdv.praticien.domain.StatutCreneau.RESERVE)
+            """)
+    int libererSiEnAttenteOuReserve(@Param("id") Long id);
 }

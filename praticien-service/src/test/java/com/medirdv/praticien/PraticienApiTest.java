@@ -7,9 +7,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import com.medirdv.praticien.service.CreneauService;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PraticienApiTest {
 
     @Autowired MockMvc mvc;
+    @Autowired CreneauService creneaux;
 
     @Test
     void creerPraticienRenvoie201EtLocation() throws Exception {
@@ -59,6 +63,60 @@ class PraticienApiTest {
                 .andExpect(status().isCreated());
         mvc.perform(post("/api/v1/praticiens/" + id + "/creneaux").contentType(MediaType.APPLICATION_JSON).content(slot))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void creneauLibrePeutEtreModifieEtSupprime() throws Exception {
+        String praticien = mvc.perform(post("/api/v1/praticiens").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nom\":\"Dr CRUD\",\"specialite\":\"ORL\"}"))
+                .andReturn().getResponse().getContentAsString();
+        String praticienId = praticien.replaceAll(".*\"id\":(\\d+).*", "$1");
+        String slot = mvc.perform(post("/api/v1/praticiens/" + praticienId + "/creneaux")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"debut\":\"2027-01-02T09:00:00\",\"fin\":\"2027-01-02T09:30:00\"}"))
+                .andReturn().getResponse().getContentAsString();
+        String creneauId = slot.replaceAll(".*\"id\":(\\d+).*", "$1");
+        String route = "/api/v1/praticiens/" + praticienId + "/creneaux/" + creneauId;
+
+        mvc.perform(put(route).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"debut\":\"2027-01-02T10:00:00\",\"fin\":\"2027-01-02T10:30:00\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.debut").value("2027-01-02T10:00:00"));
+        mvc.perform(post("/api/v1/praticiens/" + praticienId + "/creneaux")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"debut\":\"2027-01-02T10:45:00\",\"fin\":\"2027-01-02T11:15:00\"}"))
+                .andExpect(status().isCreated());
+        mvc.perform(put(route).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"debut\":\"2027-01-02T10:30:00\",\"fin\":\"2027-01-02T11:00:00\"}"))
+                .andExpect(status().isConflict());
+        mvc.perform(delete(route)).andExpect(status().isNoContent());
+        mvc.perform(get(route)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void praticienPeutAccepterOuRefuserUneReservation() throws Exception {
+        String praticien = mvc.perform(post("/api/v1/praticiens").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nom\":\"Dr Decision\",\"specialite\":\"ORL\"}"))
+                .andReturn().getResponse().getContentAsString();
+        String praticienId = praticien.replaceAll(".*\"id\":(\\d+).*", "$1");
+        String creneauId = mvc.perform(post("/api/v1/praticiens/" + praticienId + "/creneaux")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"debut\":\"2027-02-02T09:00:00\",\"fin\":\"2027-02-02T09:30:00\"}"))
+                .andReturn().getResponse().getContentAsString().replaceAll(".*\"id\":(\\d+).*", "$1");
+
+        creneaux.reserver(Long.valueOf(creneauId));
+        mvc.perform(put("/api/v1/praticiens/" + praticienId + "/creneaux/" + creneauId + "/accepter"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statut").value("RESERVE"));
+
+        String secondCreneau = mvc.perform(post("/api/v1/praticiens/" + praticienId + "/creneaux")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"debut\":\"2027-02-02T10:00:00\",\"fin\":\"2027-02-02T10:30:00\"}"))
+                .andReturn().getResponse().getContentAsString().replaceAll(".*\"id\":(\\d+).*", "$1");
+        creneaux.reserver(Long.valueOf(secondCreneau));
+        mvc.perform(put("/api/v1/praticiens/" + praticienId + "/creneaux/" + secondCreneau + "/refuser"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statut").value("LIBRE"));
     }
 
     @Test

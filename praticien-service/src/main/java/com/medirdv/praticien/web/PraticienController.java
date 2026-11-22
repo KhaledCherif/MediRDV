@@ -95,11 +95,32 @@ public class PraticienController {
 
     @GetMapping("/{id}/creneaux/{creneauId}")
     public CreneauResponse creneau(@PathVariable Long id, @PathVariable Long creneauId) {
-        Creneau c = creneaux.trouver(creneauId);
-        if (!c.getPraticien().getId().equals(id)) {
-            throw new com.medirdv.praticien.exception.NotFoundException(
-                    "Créneau " + creneauId + " introuvable pour le praticien " + id);
-        }
-        return CreneauResponse.from(c);
+        return CreneauResponse.from(creneaux.trouver(id, creneauId));
+    }
+
+    @PutMapping("/{id}/creneaux/{creneauId}")
+    @Operation(summary = "Modifier un créneau libre")
+    public CreneauResponse modifierCreneau(@PathVariable Long id, @PathVariable Long creneauId,
+                                            @Valid @RequestBody CreneauRequest req) {
+        return CreneauResponse.from(creneaux.modifier(id, creneauId, req));
+    }
+
+    @DeleteMapping("/{id}/creneaux/{creneauId}")
+    @Operation(summary = "Supprimer un créneau libre")
+    public ResponseEntity<Void> supprimerCreneau(@PathVariable Long id, @PathVariable Long creneauId) {
+        creneaux.supprimer(id, creneauId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/creneaux/{creneauId}/accepter")
+    @Operation(summary = "Accepter une demande de réservation en attente")
+    public CreneauResponse accepterCreneau(@PathVariable Long id, @PathVariable Long creneauId) {
+        return CreneauResponse.from(creneaux.accepter(id, creneauId));
+    }
+
+    @PutMapping("/{id}/creneaux/{creneauId}/refuser")
+    @Operation(summary = "Refuser une demande de réservation en attente")
+    public CreneauResponse refuserCreneau(@PathVariable Long id, @PathVariable Long creneauId) {
+        return CreneauResponse.from(creneaux.refuser(id, creneauId));
     }
 }

@@ -39,6 +39,10 @@ Ne commitez pas de vrais secrets. L'équipe doit injecter ces mêmes variables d
 | GET | `/api/v1/praticiens/{id}/creneaux` | Créneaux d'un praticien (filtres optionnels `statut`, `du`, `au`) |
 | POST | `/api/v1/praticiens/{id}/creneaux` | Création d'un créneau (201, en-tête `Location`) |
 | GET | `/api/v1/praticiens/{id}/creneaux/{creneauId}` | Détail d'un créneau |
+| PUT | `/api/v1/praticiens/{id}/creneaux/{creneauId}` | Modification d'un créneau libre |
+| DELETE | `/api/v1/praticiens/{id}/creneaux/{creneauId}` | Suppression d'un créneau libre (204) |
+| PUT | `/api/v1/praticiens/{id}/creneaux/{creneauId}/accepter` | Accepter une réservation en attente |
+| PUT | `/api/v1/praticiens/{id}/creneaux/{creneauId}/refuser` | Refuser une réservation en attente |
 
 `nom` et `specialite` sont obligatoires pour un praticien ; `debut` et `fin` sont obligatoires pour un créneau et `fin` doit être postérieure à `debut`. Les dates sont au format ISO-8601 sans fuseau (ex. `2026-12-02T09:00:00`).
 
@@ -68,7 +72,7 @@ Exemple de création d'un créneau :
 
 Renvoyer ce même créneau pour le même praticien renvoie 409. Ces valeurs sont des exemples de démonstration, pas des données réelles.
 
-Un créneau a le statut `LIBRE` à la création ; il passe à `RESERVE` uniquement par la réservation gRPC.
+Un créneau a le statut `LIBRE` à la création. La réservation gRPC le fait passer à `EN_ATTENTE`. Le praticien peut alors l'accepter (`RESERVE`) ou le refuser (retour à `LIBRE`). Seuls les créneaux `LIBRE` peuvent être modifiés ou supprimés par REST. La libération gRPC remet à `LIBRE` une demande en attente ou un créneau réservé.
 
 ## Documentation et supervision
 

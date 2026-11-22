@@ -13,7 +13,8 @@ option java_outer_classname = "PraticienProto";
 //   INVALID_ARGUMENT     request_id / creneau_id invalide
 //   DEADLINE_EXCEEDED / UNAVAILABLE  gérés côté client (retry idempotent)
 service PraticienService {
-  // Idempotent grâce à request_id : rejouer la même requête ne double-réserve pas.
+  // Idempotent grâce à request_id : la réservation place le créneau en attente
+  // de la décision du praticien (accepter/refuser via l'API REST).
   rpc ReserverCreneau(ReserverCreneauRequest) returns (ReserverCreneauResponse);
 
   // Compensation. Libérer un créneau déjà libre est un no-op réussi.

@@ -7,6 +7,7 @@ import org.springframework.test.context.TestPropertySource;
 import com.medirdv.praticien.domain.Creneau;
 import com.medirdv.praticien.domain.Praticien;
 import com.medirdv.praticien.domain.StatutCreneau;
+import com.medirdv.praticien.dto.CreneauRequest;
 import com.medirdv.praticien.exception.ConflictException;
 import com.medirdv.praticien.exception.NotFoundException;
 import com.medirdv.praticien.repository.CreneauRepository;
@@ -48,8 +49,40 @@ class CreneauReservationTest {
     void reserverPuisReReserverEchoueEn409() {
         Creneau c = nouveauCreneau();
         service.reserver(c.getId());
-        assertThat(creneaux.findById(c.getId()).orElseThrow().getStatut()).isEqualTo(StatutCreneau.RESERVE);
+        assertThat(creneaux.findById(c.getId()).orElseThrow().getStatut()).isEqualTo(StatutCreneau.EN_ATTENTE);
         assertThatThrownBy(() -> service.reserver(c.getId())).isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void praticienPeutAccepterOuRefuserUneDemande() {
+        Creneau aAccepter = nouveauCreneau();
+        service.reserver(aAccepter.getId());
+        service.accepter(aAccepter.getPraticien().getId(), aAccepter.getId());
+        assertThat(creneaux.findById(aAccepter.getId()).orElseThrow().getStatut()).isEqualTo(StatutCreneau.RESERVE);
+
+        Creneau aRefuser = nouveauCreneau();
+        service.reserver(aRefuser.getId());
+        service.refuser(aRefuser.getPraticien().getId(), aRefuser.getId());
+        assertThat(creneaux.findById(aRefuser.getId()).orElseThrow().getStatut()).isEqualTo(StatutCreneau.LIBRE);
+    }
+
+    @Test
+    void seulUnCreneauLibrePeutEtreModifieOuSupprime() {
+        Creneau libre = nouveauCreneau();
+        LocalDateTime nouveauDebut = LocalDateTime.of(2026, 12, 3, 10, 0);
+        service.modifier(libre.getPraticien().getId(), libre.getId(),
+                new CreneauRequest(nouveauDebut, nouveauDebut.plusMinutes(30)));
+        assertThat(creneaux.findById(libre.getId()).orElseThrow().getDebut()).isEqualTo(nouveauDebut);
+        service.supprimer(libre.getPraticien().getId(), libre.getId());
+        assertThat(creneaux.existsById(libre.getId())).isFalse();
+
+        Creneau enAttente = nouveauCreneau();
+        service.reserver(enAttente.getId());
+        assertThatThrownBy(() -> service.supprimer(enAttente.getPraticien().getId(), enAttente.getId()))
+                .isInstanceOf(ConflictException.class);
+        assertThatThrownBy(() -> service.modifier(enAttente.getPraticien().getId(), enAttente.getId(),
+                new CreneauRequest(nouveauDebut, nouveauDebut.plusMinutes(30))))
+                .isInstanceOf(ConflictException.class);
     }
 
     @Test
