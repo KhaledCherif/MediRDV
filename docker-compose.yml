@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d patient_db"]
       interval: 5s
@@ -34,6 +35,78 @@ services:
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  praticien-service:
+    build:
+      context: ./praticien-service
+      dockerfile: Dockerfile
+    container_name: medirdv-praticien-service
+    environment:
+      SERVER_PORT: 8082
+      DB_URL: jdbc:postgresql://postgres:5432/praticien_db
+      DB_USERNAME: praticien_user
+      DB_PASSWORD: praticien_pass
+      JPA_DDL_AUTO: update
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  rendezvous-service:
+    build:
+      context: ./rendezvous-service
+      dockerfile: Dockerfile
+    container_name: medirdv-rendezvous-service
+    environment:
+      SERVER_PORT: 8083
+      DB_URL: jdbc:postgresql://postgres:5432/rdv_db
+      DB_USERNAME: rdv_user
+      DB_PASSWORD: rdv_pass
+      PATIENT_SERVICE_URL: http://patient-service:8081
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      patient-service:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  assurance-legacy:
+    build:
+      context: ./assurance-legacy
+      dockerfile: Dockerfile
+    container_name: medirdv-assurance-legacy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/assurance_legacy
+      SPRING_DATASOURCE_USERNAME: assurance
+      SPRING_DATASOURCE_PASSWORD: assurance123
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
       timeout: 3s
       retries: 5
