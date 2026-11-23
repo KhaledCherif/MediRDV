@@ -39,6 +39,11 @@ public class CreneauService {
     }
 
     @Transactional(readOnly = true)
+    public boolean existe(Long id) {
+        return creneaux.existsById(id);
+    }
+
+    @Transactional(readOnly = true)
     public Creneau trouver(Long praticienId, Long id) {
         return trouverPourPraticien(praticienId, id);
     }
@@ -90,18 +95,23 @@ public class CreneauService {
 
     /**
      * Réservation atomique : un seul UPDATE ... WHERE statut = 'LIBRE', la demande passe en attente.
-     * 0 ligne modifiée = créneau inexistant (404) ou déjà pris (409). Aucune lecture préalable ne décide du résultat,
+     * 0 ligne modifiée = créneau inexistant ou plus libre. Aucune lecture préalable ne décide du résultat,
      * donc pas de fenêtre de course.
      */
     @Transactional
     public void reserver(Long id) {
-        if (creneaux.reserverSiLibre(id) == 1) {
+        if (tenterReserver(id)) {
             return;
         }
         if (!creneaux.existsById(id)) {
             throw new NotFoundException("Créneau introuvable : " + id);
         }
         throw new ConflictException("Créneau déjà réservé : " + id);
+    }
+
+    @Transactional
+    public boolean tenterReserver(Long id) {
+        return creneaux.reserverSiLibre(id) == 1;
     }
 
     /** Compensation : libère une demande en attente ou un créneau confirmé. */
