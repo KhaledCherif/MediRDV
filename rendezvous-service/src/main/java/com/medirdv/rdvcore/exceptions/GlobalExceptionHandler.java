@@ -31,7 +31,8 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "Malformed request");
     }
 
-    @ExceptionHandler({ RendezvousNotFoundException.class, PatientNotFoundException.class })
+    @ExceptionHandler({ RendezvousNotFoundException.class, PatientNotFoundException.class,
+            CreneauNotFoundException.class })
     public ResponseEntity<Map<String, String>> handleNotFound(RuntimeException exception) {
         return error(HttpStatus.NOT_FOUND, exception.getMessage());
     }
@@ -46,8 +47,19 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, "A rendezvous with this requestId already exists");
     }
 
-    @ExceptionHandler(PatientServiceUnavailableException.class)
-    public ResponseEntity<Map<String, String>> handleUnavailable(PatientServiceUnavailableException exception) {
+    /** gRPC FAILED_PRECONDITION: the slot is already booked. */
+    @ExceptionHandler(CreneauDejaReserveException.class)
+    public ResponseEntity<Map<String, String>> handleCreneauPris(CreneauDejaReserveException exception) {
+        return error(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException exception) {
+        return error(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler({ PatientServiceUnavailableException.class, PraticienServiceUnavailableException.class })
+    public ResponseEntity<Map<String, String>> handleUnavailable(RuntimeException exception) {
         return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
 
