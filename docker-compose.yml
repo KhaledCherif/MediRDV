@@ -66,8 +66,9 @@ services:
 
   rendezvous-service:
     build:
-      context: ./rendezvous-service
-      dockerfile: Dockerfile
+      # repo root, so the Dockerfile can copy contracts/
+      context: .
+      dockerfile: rendezvous-service/Dockerfile
     container_name: medirdv-rendezvous-service
     environment:
       SERVER_PORT: 8083
@@ -75,6 +76,8 @@ services:
       DB_USERNAME: rdv_user
       DB_PASSWORD: rdv_pass
       PATIENT_SERVICE_URL: http://patient-service:8081
+      PRATICIEN_GRPC_HOST: praticien-service
+      PRATICIEN_GRPC_PORT: 9090
     ports:
       - "8083:8083"
     depends_on:
