@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +74,18 @@ class RendezvousServiceTest {
     }
 
     @Test
+    void createRejectsRequestIdReusedForAnotherBooking() {
+        Rendezvous existing = new Rendezvous(1L, 10L, RendezvousStatus.PLANIFIE, REQUEST_ID);
+        when(repository.findByRequestId(REQUEST_ID)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service.create(new CreateRendezvousRequest(1L, 11L, REQUEST_ID)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("requestId");
+        verifyNoInteractions(patientClient);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void createFailsWhenPatientUnknown() {
         when(repository.findByRequestId(REQUEST_ID)).thenReturn(Optional.empty());
         doThrow(new PatientNotFoundException(1L)).when(patientClient).assertPatientExists(1L);
@@ -106,5 +120,40 @@ class RendezvousServiceTest {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.findById(99L)).isInstanceOf(RendezvousNotFoundException.class);
+    }
+
+    @Test
+    void activeSlotIdsIncludeOnlyCurrentBookingsForThePatient() {
+        when(repository.findByPatientId(1L)).thenReturn(List.of(
+                new Rendezvous(1L, 10L, RendezvousStatus.PLANIFIE, UUID.randomUUID()),
+                new Rendezvous(1L, 11L, RendezvousStatus.DROITS_A_VERIFIER, UUID.randomUUID()),
+                new Rendezvous(1L, 12L, RendezvousStatus.ANNULE, UUID.randomUUID()),
+                new Rendezvous(1L, 13L, RendezvousStatus.CLOTURE, UUID.randomUUID()),
+                new Rendezvous(1L, 10L, RendezvousStatus.PLANIFIE, UUID.randomUUID())));
+
+        assertThat(service.activeSlotIdsForPatient(1L)).isEqualTo(Set.of(10L, 11L));
+        verify(repository).findByPatientId(1L);
+    }
+
+    @Test
+    void activeSlotIdsAreEmptyWhenPatientHasNoBookings() {
+        when(repository.findByPatientId(2L)).thenReturn(List.of());
+
+        assertThat(service.activeSlotIdsForPatient(2L)).isEmpty();
+    }
+
+    @Test
+    void filterAvailableSlotsPreservesUnbookedObjectsAndStreamOrder() {
+        record Slot(long id, String practitioner) {}
+        Slot first = new Slot(20L, "A");
+        Slot booked = new Slot(21L, "B");
+        Slot last = new Slot(22L, "C");
+        when(repository.findByPatientId(1L)).thenReturn(List.of(
+                new Rendezvous(1L, 21L, RendezvousStatus.PLANIFIE, UUID.randomUUID())));
+
+        List<Slot> result = service.filterAvailableSlotsForPatient(
+                1L, List.of(first, booked, last), Slot::id);
+
+        assertThat(result).containsExactly(first, last);
     }
 }

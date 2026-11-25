@@ -1,7 +1,11 @@
 package com.medirdv.rdvcore.services;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.ToLongFunction;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +49,12 @@ public class RendezvousService {
     public CreationResult create(CreateRendezvousRequest request) {
         Optional<Rendezvous> existing = repository.findByRequestId(request.requestId());
         if (existing.isPresent()) {
-            return new CreationResult(existing.get(), false);
+            Rendezvous rendezvous = existing.get();
+            if (!Objects.equals(rendezvous.getPatientId(), request.patientId())
+                    || !Objects.equals(rendezvous.getCreneauId(), request.creneauId())) {
+                throw new IllegalStateException("requestId already belongs to a different rendezvous");
+            }
+            return new CreationResult(rendezvous, false);
         }
 
         patientClient.assertPatientExists(request.patientId());
@@ -66,6 +75,29 @@ public class RendezvousService {
     @Transactional(readOnly = true)
     public List<Rendezvous> findAll(Long patientId) {
         return patientId == null ? repository.findAll() : repository.findByPatientId(patientId);
+    }
+
+    /**
+     * Slot ids to exclude for this patient. Planned and pending-rights appointments
+     * count as active; cancelled and closed appointments do not.
+     */
+    @Transactional(readOnly = true)
+    public Set<Long> activeSlotIdsForPatient(Long patientId) {
+        return repository.findByPatientId(patientId).stream()
+                .filter(rendezvous -> rendezvous.getStatut() == RendezvousStatus.PLANIFIE
+                        || rendezvous.getStatut() == RendezvousStatus.DROITS_A_VERIFIER)
+                .map(Rendezvous::getCreneauId)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** Keeps the slot objects and ordering supplied by the streaming client. */
+    @Transactional(readOnly = true)
+    public <T> List<T> filterAvailableSlotsForPatient(
+            Long patientId, List<T> availableSlots, ToLongFunction<T> slotId) {
+        Set<Long> bookedSlotIds = activeSlotIdsForPatient(patientId);
+        return availableSlots.stream()
+                .filter(slot -> !bookedSlotIds.contains(slotId.applyAsLong(slot)))
+                .toList();
     }
 
     /** Applies a status change; invalid transitions throw IllegalStateException (mapped to 409). */

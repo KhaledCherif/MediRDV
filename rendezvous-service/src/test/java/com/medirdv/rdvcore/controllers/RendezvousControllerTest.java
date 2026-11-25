@@ -71,6 +71,16 @@ class RendezvousControllerTest {
     }
 
     @Test
+    void createWithReusedRequestIdForDifferentBookingReturns409() throws Exception {
+        when(rendezvousService.create(any()))
+                .thenThrow(new IllegalStateException("requestId already belongs to a different rendezvous"));
+
+        mockMvc.perform(post("/api/v1/rendezvous").contentType(MediaType.APPLICATION_JSON)
+                        .content(createBody("1")))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
     void createWithMissingFieldsReturns400() throws Exception {
         mockMvc.perform(post("/api/v1/rendezvous").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
