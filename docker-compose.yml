@@ -78,6 +78,8 @@ services:
       PATIENT_SERVICE_URL: http://patient-service:8081
       PRATICIEN_GRPC_HOST: praticien-service
       PRATICIEN_GRPC_PORT: 9090
+      PRATICIEN_REST_URL: http://praticien-service:8082
+      ASSURANCE_SOAP_URL: http://assurance-legacy:8080/ws
     ports:
       - "8083:8083"
     depends_on:

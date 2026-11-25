@@ -122,6 +122,18 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}</directory>
+                <includes>
+                    <include>openapi.yaml</include>
+                </includes>
+                <targetPath>static</targetPath>
+            </resource>
+        </resources>
         <!-- Detects the OS so Maven downloads the right protoc binary -->
         <extensions>
             <extension>
