@@ -14,6 +14,7 @@ RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
 
 # Copy source and build
 COPY rendezvous-service/src src
+COPY rendezvous-service/openapi.yaml openapi.yaml
 RUN ./mvnw -B -q package -DskipTests
 
 # ---- Runtime stage (JRE only, non-root user) ----
