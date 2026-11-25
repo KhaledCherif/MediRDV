@@ -7,6 +7,6 @@ import jakarta.validation.constraints.NotNull;
 
 public record UpdateStatutRequest(
         @NotNull
-        @Schema(description = "Nouveau statut (transition validée par la machine à états)", example = "ANNULE")
+        @Schema(description = "Action publique : ANNULE ou CLOTURE", example = "ANNULE")
         RendezvousStatus statut) {
 }

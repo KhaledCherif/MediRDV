@@ -54,8 +54,8 @@ public class GlobalExceptionHandler {
     }
 
     /** SOAP business fault AssureInconnu. */
-    @ExceptionHandler(AssureInconnuException.class)
-    public ResponseEntity<Map<String, String>> handleAssureInconnu(AssureInconnuException exception) {
+    @ExceptionHandler({ AssureInconnuException.class, DroitsNonCouvertsException.class })
+    public ResponseEntity<Map<String, String>> handleInsuranceRejection(RuntimeException exception) {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());
     }
 
@@ -65,7 +65,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({ PatientServiceUnavailableException.class, PraticienServiceUnavailableException.class,
-            AssuranceServiceUnavailableException.class })
+            AssuranceServiceUnavailableException.class, RendezvousPersistenceException.class })
     public ResponseEntity<Map<String, String>> handleUnavailable(RuntimeException exception) {
         return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
