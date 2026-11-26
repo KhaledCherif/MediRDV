@@ -1,11 +1,13 @@
 package com.medirdv.praticien.repository;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import com.medirdv.praticien.domain.Creneau;
 import com.medirdv.praticien.domain.StatutCreneau;
+import com.medirdv.praticien.dto.CreneauDisponible;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +25,26 @@ public interface CreneauRepository extends JpaRepository<Creneau, Long> {
                              @Param("statut") StatutCreneau statut,
                              @Param("du") LocalDateTime du,
                              @Param("au") LocalDateTime au);
+
+    @Query("""
+            select new com.medirdv.praticien.dto.CreneauDisponible(
+                c.id, p.id, p.nom, p.specialite, c.debut, c.fin)
+            from Creneau c
+            join c.praticien p
+            where c.statut = com.medirdv.praticien.domain.StatutCreneau.LIBRE
+              and (:specialite is null or lower(p.specialite) = lower(:specialite))
+              and (:du is null or c.debut >= :du)
+              and (:au is null or c.debut < :au)
+              and (:dernierDebut is null or c.debut > :dernierDebut
+                   or (c.debut = :dernierDebut and c.id > :dernierId))
+            order by c.debut, c.id
+            """)
+    List<CreneauDisponible> rechercherDisponibles(@Param("specialite") String specialite,
+                                                   @Param("du") LocalDateTime du,
+                                                   @Param("au") LocalDateTime au,
+                                                   @Param("dernierDebut") LocalDateTime dernierDebut,
+                                                   @Param("dernierId") Long dernierId,
+                                                   Pageable pageable);
 
     boolean existsByPraticienIdAndDebutLessThanAndFinGreaterThan(Long praticienId,
                                                                  LocalDateTime fin,

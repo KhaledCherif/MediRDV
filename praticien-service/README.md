@@ -11,6 +11,7 @@ La connexion à la base doit être fournie par variables d'environnement. Aucun 
 | Variable | Valeur locale indicative | Usage |
 | --- | --- | --- |
 | `SERVER_PORT` | `8082` | Port HTTP (défaut : 8082) |
+| `GRPC_SERVER_PORT` | `9090` | Port gRPC (défaut : 9090) |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/praticien_db` | URL JDBC ; dans Docker, utiliser le nom DNS du conteneur PostgreSQL défini par l'équipe |
 | `DB_USERNAME` | à définir | Utilisateur PostgreSQL |
 | `DB_PASSWORD` | à définir | Mot de passe PostgreSQL |
@@ -74,6 +75,26 @@ Renvoyer ce même créneau pour le même praticien renvoie 409. Ces valeurs sont
 
 Un créneau a le statut `LIBRE` à la création. La réservation gRPC le fait passer à `EN_ATTENTE`. Le praticien peut alors l'accepter (`RESERVE`) ou le refuser (retour à `LIBRE`). Seuls les créneaux `LIBRE` peuvent être modifiés ou supprimés par REST. La libération gRPC remet à `LIBRE` une demande en attente ou un créneau réservé.
 
+## gRPC
+
+Le serveur écoute sur le port `9090` par défaut. La réflexion gRPC est activée, donc `grpcurl` n'a pas besoin du fichier `.proto` :
+
+```powershell
+grpcurl -plaintext localhost:9090 list
+grpcurl -plaintext localhost:9090 describe medirdv.praticien.v1.PraticienService
+```
+
+La réservation exige un UUID `request_id` et un identifiant de créneau positif. Un rejeu avec le même `request_id` et le même créneau est idempotent (`deja_traite=true`). Un autre `request_id` pour un créneau déjà pris renvoie `FAILED_PRECONDITION` :
+
+```powershell
+grpcurl -plaintext -d '{"request_id":"11111111-1111-4111-8111-111111111111","creneau_id":1}' `
+  localhost:9090 medirdv.praticien.v1.PraticienService/ReserverCreneau
+grpcurl -plaintext -d '{"request_id":"22222222-2222-4222-8222-222222222222","creneau_id":1}' `
+  localhost:9090 medirdv.praticien.v1.PraticienService/ReserverCreneau
+```
+
+Remplacez `1` par l'identifiant d'un créneau existant `LIBRE`. Les identifiants de requête sont conservés en base pour garantir l'idempotence après un redémarrage. `ListerCreneauxDisponibles` lit les créneaux par pages ordonnées de 100 et interrompt la lecture dès l'annulation du flux.
+
 ## Documentation et supervision
 
 - Swagger UI : `/swagger-ui.html`
@@ -89,12 +110,12 @@ Actuator n'expose pas les détails de santé publiquement.
 ./mvnw verify
 ```
 
-Les tests utilisent une base H2 en mémoire : ni Docker ni PostgreSQL ne sont nécessaires. Ils couvrent notamment la réservation atomique (20 réservations simultanées d'un même créneau : une seule réussit) et les codes HTTP 201, 400, 404 et 409.
+Les tests utilisent une base H2 en mémoire : ni Docker ni PostgreSQL ne sont nécessaires. Ils couvrent notamment la réservation atomique (20 réservations simultanées d'un même créneau : une seule réussit), les codes HTTP et gRPC, l'idempotence gRPC et le flux disponible paginé/annulable.
 
 ## Docker
 
 ```bash
-docker build -t praticien-service .
+docker build -f praticien-service/Dockerfile -t praticien-service .
 ```
 
 Le `Dockerfile` est multi-stage (JDK 17 pour le build, JRE 17 pour l'exécution, utilisateur non-root). Le démarrage complet se fait via le `docker-compose.yml` de l'équipe.
