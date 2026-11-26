@@ -1,16 +1,20 @@
 # syntax=docker/dockerfile:1
+# Build context = repo root (see docker-compose.yml), so that contracts/ (proto + xsd) is available.
 
 # ---- Build stage (JDK + Maven wrapper) ----
 FROM eclipse-temurin:17-jdk AS build
 WORKDIR /workspace
 
 # Copy Maven wrapper and pom.xml first for dependency caching
-COPY .mvn .mvn
-COPY mvnw pom.xml ./
+COPY rendezvous-service/.mvn .mvn
+COPY rendezvous-service/mvnw rendezvous-service/pom.xml ./
+# pom.xml reads ../contracts (gRPC stubs + JAXB classes), i.e. /contracts here
+COPY contracts /contracts
 RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
 
 # Copy source and build
-COPY src src
+COPY rendezvous-service/src src
+COPY rendezvous-service/openapi.yaml openapi.yaml
 RUN ./mvnw -B -q package -DskipTests
 
 # ---- Runtime stage (JRE only, non-root user) ----

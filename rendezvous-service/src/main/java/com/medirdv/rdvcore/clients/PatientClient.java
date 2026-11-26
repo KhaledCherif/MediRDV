@@ -3,6 +3,7 @@ package com.medirdv.rdvcore.clients;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
@@ -20,7 +21,7 @@ public class PatientClient {
 
     private final RestClient patientRestClient;
 
-    public PatientClient(RestClient patientRestClient) {
+    public PatientClient(@Qualifier("patientRestClient") RestClient patientRestClient) {
         this.patientRestClient = patientRestClient;
     }
 

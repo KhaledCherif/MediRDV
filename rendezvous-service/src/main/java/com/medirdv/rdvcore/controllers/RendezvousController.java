@@ -1,9 +1,11 @@
 package com.medirdv.rdvcore.controllers;
 
 import java.net.URI;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.medirdv.rdvcore.dto.CreateRendezvousRequest;
+import com.medirdv.rdvcore.dto.CreneauxDisponibles;
 import com.medirdv.rdvcore.dto.RendezvousResponse;
 import com.medirdv.rdvcore.dto.UpdateStatutRequest;
 import com.medirdv.rdvcore.services.RendezvousService;
@@ -43,8 +46,10 @@ public class RendezvousController {
             @ApiResponse(responseCode = "201", description = "Rendez-vous créé"),
             @ApiResponse(responseCode = "200", description = "requestId déjà traité : rendez-vous existant renvoyé"),
             @ApiResponse(responseCode = "400", description = "Données invalides", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Patient introuvable", content = @Content),
-            @ApiResponse(responseCode = "503", description = "patient-service indisponible", content = @Content)
+            @ApiResponse(responseCode = "404", description = "Patient ou créneau introuvable", content = @Content),
+            @ApiResponse(responseCode = "409", description = "Créneau pris ou requestId réutilisé", content = @Content),
+            @ApiResponse(responseCode = "422", description = "Assuré inconnu ou non couvert", content = @Content),
+            @ApiResponse(responseCode = "503", description = "Service distant ou base indisponible", content = @Content)
     })
     public ResponseEntity<RendezvousResponse> create(@Valid @RequestBody CreateRendezvousRequest request) {
         RendezvousService.CreationResult result = rendezvousService.create(request);
@@ -78,13 +83,30 @@ public class RendezvousController {
                 .toList();
     }
 
+    @GetMapping("/creneaux-disponibles")
+    @Operation(summary = "Lister les créneaux disponibles pour un patient")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Créneaux filtrés, avec indicateur de résultat partiel"),
+            @ApiResponse(responseCode = "400", description = "Filtres invalides", content = @Content),
+            @ApiResponse(responseCode = "503", description = "praticien-service indisponible", content = @Content)
+    })
+    public CreneauxDisponibles availableSlots(
+            @RequestParam Long patientId,
+            @RequestParam(required = false) String specialite,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime du,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime au) {
+        return rendezvousService.availableSlotsForPatient(patientId, specialite, du, au);
+    }
+
     @PatchMapping("/{id}/statut")
-    @Operation(summary = "Changer le statut d'un rendez-vous (machine à états)")
+    @Operation(summary = "Annuler ou clôturer un rendez-vous")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Statut modifié"),
             @ApiResponse(responseCode = "400", description = "Statut invalide", content = @Content),
             @ApiResponse(responseCode = "404", description = "Rendez-vous introuvable", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Transition interdite", content = @Content)
+            @ApiResponse(responseCode = "409", description = "Transition interdite", content = @Content),
+            @ApiResponse(responseCode = "422", description = "Assuré inconnu", content = @Content),
+            @ApiResponse(responseCode = "503", description = "Libération ou métadonnées indisponibles", content = @Content)
     })
     public RendezvousResponse changeStatut(@PathVariable Long id,
                                            @Valid @RequestBody UpdateStatutRequest request) {

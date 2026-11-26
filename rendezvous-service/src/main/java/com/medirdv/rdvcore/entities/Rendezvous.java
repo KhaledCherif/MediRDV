@@ -20,6 +20,10 @@ public class Rendezvous {
     @Column(name = "creneau_id", nullable = false)
     private Long creneauId;
 
+    // Nullable for appointments created before Suivi 2 orchestration.
+    @Column(name = "praticien_id")
+    private Long praticienId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "statut", nullable = false)
     private RendezvousStatus statut;
@@ -61,6 +65,14 @@ public class Rendezvous {
 
     public void setCreneauId(Long creneauId) {
         this.creneauId = creneauId;
+    }
+
+    public Long getPraticienId() {
+        return praticienId;
+    }
+
+    public void setPraticienId(Long praticienId) {
+        this.praticienId = praticienId;
     }
 
     public RendezvousStatus getStatut() {

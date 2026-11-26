@@ -65,4 +65,5 @@ INSERT INTO rendezvous (patient_id, creneau_id, statut, request_id, pending_decl
 (19, 38, 'ANNULE', 'a9b0c1d2-e3f4-5678-abcd-901234567890', false, false),
 
 -- Patient 20 (Hichem Ayari) - creneau 43 (Dr. Hichem Ayari, 2025-01-15 14:45)
-(20, 43, 'PLANIFIE', 'b0c1d2e3-f4a5-6789-bcde-012345678901', false, false);
+(20, 43, 'PLANIFIE', 'b0c1d2e3-f4a5-6789-bcde-012345678901', false, false)
+ON CONFLICT (request_id) DO NOTHING;

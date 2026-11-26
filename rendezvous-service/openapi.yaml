@@ -56,13 +56,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ValidationErrors'
         '404':
-          description: Patient introuvable (patient-service)
+          description: Patient ou créneau introuvable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Créneau déjà réservé ou requestId réutilisé avec un autre contenu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Assuré inconnu ou sans couverture
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '503':
-          description: patient-service indisponible
+          description: Service distant ou base indisponible
           content:
             application/json:
               schema:
@@ -88,6 +100,47 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RendezvousResponse'
+  /api/v1/rendezvous/creneaux-disponibles:
+    get:
+      tags: [Rendez-vous]
+      summary: Lister les créneaux disponibles pour un patient
+      description: Exclut les créneaux des rendez-vous PLANIFIE et DROITS_A_VERIFIER du patient. partiel conserve le signal de deadline gRPC.
+      operationId: listerCreneauxDisponiblesPourPatient
+      parameters:
+        - name: patientId
+          in: query
+          required: true
+          schema: {type: integer, format: int64, minimum: 1}
+        - name: specialite
+          in: query
+          schema: {type: string}
+        - name: du
+          in: query
+          description: Date ISO-8601 inclusive, sans fuseau
+          schema: {type: string}
+        - name: au
+          in: query
+          description: Date ISO-8601 exclusive, sans fuseau
+          schema: {type: string}
+      responses:
+        '200':
+          description: Créneaux filtrés, éventuellement partiels
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreneauxDisponibles'
+        '400':
+          description: Filtres invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: praticien-service indisponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /api/v1/rendezvous/{id}:
     parameters:
       - name: id
@@ -117,7 +170,7 @@ paths:
                 $ref: '#/components/schemas/ApiError'
     patch:
       tags: [Rendez-vous]
-      summary: Changer le statut d'un rendez-vous (machine à états)
+      summary: Annuler ou clôturer un rendez-vous
       operationId: changerStatutRendezvous
       requestBody:
         required: true
@@ -148,6 +201,18 @@ paths:
                 $ref: '#/components/schemas/ApiError'
         '409':
           description: Transition interdite par la machine à états
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '422':
+          description: Assuré inconnu lors de la déclaration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '503':
+          description: Service distant ou base indisponible
           content:
             application/json:
               schema:
@@ -183,20 +248,14 @@ components:
       properties:
         statut:
           type: string
-          enum: [PLANIFIE, DROITS_A_VERIFIER, ANNULE, CLOTURE]
+          enum: [ANNULE, CLOTURE]
           description: |
-            Nouveau statut (transition validée par la machine à états).
-            Transitions autorisées:
-            - DROITS_A_VERIFIER -> PLANIFIE (droits OK)
-            - DROITS_A_VERIFIER -> ANNULE (droits KO)
-            - PLANIFIE -> ANNULE (annulation patient/praticien)
-            - PLANIFIE -> CLOTURE (après consultation)
-            - ANNULE -> (aucune)
-            - CLOTURE -> (aucune)
+            Actions publiques : annulation ou clôture. Les autres transitions
+            ne peuvent pas contourner les appels SOAP/gRPC.
           example: "ANNULE"
     RendezvousResponse:
       type: object
-      required: [id, patientId, creneauId, statut, requestId]
+      required: [id, patientId, creneauId, statut, requestId, pendingDeclaration, pendingLiberation]
       properties:
         id:
           type: integer
@@ -214,6 +273,11 @@ components:
           format: int64
           description: Identifiant du créneau
           example: 10
+        praticienId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Identifiant du praticien, absent pour les anciennes lignes
         statut:
           type: string
           enum: [PLANIFIE, DROITS_A_VERIFIER, ANNULE, CLOTURE]
@@ -225,6 +289,33 @@ components:
           readOnly: true
           description: Clé d'idempotence utilisée à la création
           example: "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        pendingDeclaration:
+          type: boolean
+          description: Déclaration SOAP non confirmée; reprise automatique hors du Suivi 2
+        pendingLiberation:
+          type: boolean
+          description: Libération gRPC non confirmée; une nouvelle annulation réutilise la même clé
+    CreneauxDisponibles:
+      type: object
+      required: [creneaux, partiel]
+      properties:
+        creneaux:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreneauDto'
+        partiel:
+          type: boolean
+          description: Vrai si le délai gRPC de 5 secondes a interrompu le flux après des résultats
+    CreneauDto:
+      type: object
+      required: [id, praticienId, praticienNom, specialite, debut, fin]
+      properties:
+        id: {type: integer, format: int64}
+        praticienId: {type: integer, format: int64}
+        praticienNom: {type: string}
+        specialite: {type: string}
+        debut: {type: string, description: Date ISO-8601 sans fuseau}
+        fin: {type: string, description: Date ISO-8601 sans fuseau}
     ApiError:
       type: object
       required: [status, error, message]
