@@ -9,12 +9,14 @@ COPY .mvn/ .mvn/
 RUN chmod +x mvnw
 
 COPY src/ src/
+COPY openapi.yaml openapi.yaml
 RUN ./mvnw -B -DskipTests package
 
 # Run the application with a smaller Java 17 image and a non-root user.
 FROM eclipse-temurin:17-jre-alpine AS runtime
 
 WORKDIR /app
+RUN apk add --no-cache curl
 RUN addgroup -S spring && adduser -S spring -G spring
 COPY --from=build --chown=spring:spring /workspace/target/*.jar /app/app.jar
 

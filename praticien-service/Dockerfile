@@ -9,10 +9,11 @@ WORKDIR /workspace
 COPY praticien-service/.mvn .mvn
 COPY praticien-service/mvnw praticien-service/pom.xml ./
 COPY contracts /contracts
-RUN chmod +x mvnw && ./mvnw -B -q dependency:go-offline
+RUN chmod +x mvnw && ./mvnw -B dependency:go-offline
 
 COPY praticien-service/src src
-RUN ./mvnw -B -q package -DskipTests
+COPY praticien-service/openapi.yaml openapi.yaml
+RUN ./mvnw -B package -DskipTests
 
 # ---- Étape 2 : exécution (JRE seul, utilisateur non-root) ----
 FROM eclipse-temurin:17-jre

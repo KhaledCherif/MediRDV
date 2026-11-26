@@ -21,4 +21,5 @@ INSERT INTO patients (nom, contact, numero_assure) VALUES
 ('Dorra Ben Hassen', '+216 20 000 017', 'ASSURE-017'),
 ('Ali Mansouri', '+216 20 000 018', 'ASSURE-018'),
 ('Salma Jaziri', '+216 20 000 019', 'ASSURE-019'),
-('Hichem Ayari', '+216 20 000 020', 'ASSURE-020');
+('Hichem Ayari', '+216 20 000 020', 'ASSURE-020')
+ON CONFLICT (numero_assure) DO NOTHING;

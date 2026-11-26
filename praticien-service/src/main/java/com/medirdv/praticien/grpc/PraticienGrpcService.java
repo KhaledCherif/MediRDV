@@ -9,6 +9,7 @@ import com.medirdv.praticien.repository.CreneauRepository;
 import com.medirdv.praticien.service.GrpcRequestService;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
@@ -16,6 +17,8 @@ import java.util.List;
 public class PraticienGrpcService extends PraticienServiceGrpc.PraticienServiceImplBase {
 
     private static final int PAGE_SIZE = 100;
+    private static final LocalDateTime MIN_DATE = LocalDate.of(1, 1, 1).atStartOfDay();
+    private static final LocalDateTime MAX_DATE = LocalDate.of(9999, 12, 31).atTime(23, 59, 59, 999_999_999);
 
     private final GrpcRequestService requests;
     private final CreneauRepository creneaux;
@@ -52,15 +55,17 @@ public class PraticienGrpcService extends PraticienServiceGrpc.PraticienServiceI
     public void listerCreneauxDisponibles(ListerCreneauxDisponiblesRequest request,
                                           StreamObserver<Creneau> responseObserver) {
         ServerCallStreamObserver<Creneau> serverObserver = asServerObserver(responseObserver);
-        String specialite = request.getSpecialite().isBlank() ? null : request.getSpecialite().trim();
-        LocalDateTime du = parserDate(request.getDu(), "du");
-        LocalDateTime au = parserDate(request.getAu(), "au");
+        String specialite = request.getSpecialite().isBlank() ? "" : request.getSpecialite().trim();
+        LocalDateTime parsedDu = parserDate(request.getDu(), "du");
+        LocalDateTime parsedAu = parserDate(request.getAu(), "au");
+        LocalDateTime du = parsedDu == null ? MIN_DATE : parsedDu;
+        LocalDateTime au = parsedAu == null ? MAX_DATE : parsedAu;
         if (du != null && au != null && !du.isBefore(au)) {
             throw new IllegalArgumentException("du doit être antérieur à au");
         }
 
-        LocalDateTime dernierDebut = null;
-        Long dernierId = null;
+        LocalDateTime dernierDebut = MIN_DATE;
+        Long dernierId = 0L;
         while (!serverObserver.isCancelled()) {
             List<CreneauDisponible> resultPage =
                     creneaux.rechercherDisponibles(

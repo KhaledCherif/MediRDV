@@ -27,4 +27,5 @@ INSERT INTO assurances (numero_assure, nom, prenom, couverture, taux_rembourseme
 -- Additional test records with different coverage levels
 ('ASSURE-TEST-001', 'Test', 'Couverture100', true, 100.00, '2024-01-15 10:00:00'),
 ('ASSURE-TEST-002', 'Test', 'Couverture50', true, 50.00, '2024-01-15 10:00:00'),
-('ASSURE-TEST-003', 'Test', 'SansCouverture', false, 0.00, '2024-01-15 10:00:00');
+('ASSURE-TEST-003', 'Test', 'SansCouverture', false, 0.00, '2024-01-15 10:00:00')
+ON CONFLICT (numero_assure) DO NOTHING;

@@ -1,4 +1,19 @@
 .metadata/
 .env
-/target/
+.env.*
+!.env.exemple
 
+# Maven and other build output
+**/target/
+**/build/
+**/out/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.iml
+
+# Local operating system files and logs
+.DS_Store
+Thumbs.db
+*.log

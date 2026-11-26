@@ -10,9 +10,9 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+      - ./init-multiple-dbs.sh:/usr/local/bin/ensure-service-databases.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d patient_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d patient_db && bash /usr/local/bin/ensure-service-databases.sh"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -42,8 +42,9 @@ services:
 
   praticien-service:
     build:
-      context: ./praticien-service
-      dockerfile: Dockerfile
+      # repo root, so Maven can read ../contracts as configured in pom.xml
+      context: .
+      dockerfile: praticien-service/Dockerfile
     container_name: medirdv-praticien-service
     environment:
       SERVER_PORT: 8082
@@ -53,6 +54,7 @@ services:
       JPA_DDL_AUTO: update
     ports:
       - "8082:8082"
+      - "9090:9090"
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,6 +88,10 @@ services:
       postgres:
         condition: service_healthy
       patient-service:
+        condition: service_healthy
+      praticien-service:
+        condition: service_healthy
+      assurance-legacy:
         condition: service_healthy
     restart: on-failure
     healthcheck:

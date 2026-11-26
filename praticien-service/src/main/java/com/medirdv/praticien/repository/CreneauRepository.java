@@ -32,10 +32,10 @@ public interface CreneauRepository extends JpaRepository<Creneau, Long> {
             from Creneau c
             join c.praticien p
             where c.statut = com.medirdv.praticien.domain.StatutCreneau.LIBRE
-              and (:specialite is null or lower(p.specialite) = lower(:specialite))
-              and (:du is null or c.debut >= :du)
-              and (:au is null or c.debut < :au)
-              and (:dernierDebut is null or c.debut > :dernierDebut
+              and (:specialite = '' or lower(p.specialite) = lower(:specialite))
+              and c.debut >= :du
+              and c.debut < :au
+              and (c.debut > :dernierDebut
                    or (c.debut = :dernierDebut and c.id > :dernierId))
             order by c.debut, c.id
             """)
